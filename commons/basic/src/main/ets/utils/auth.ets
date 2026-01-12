@@ -10,6 +10,41 @@ export interface HdUser {
   nickName?: string
   totalTime?: number
   clockinNumbers?: number
+  realName?: string
+  studentNo?: string
+  gender?: number // 0: Secret, 1: Male, 2: Female
+}
+
+/**
+ * 归一化用户数据，解决字段大小写不一致问题
+ * Normalize user data to handle case sensitivity issues (e.g. nickName vs nickname)
+ */
+export function normalizeUser(data: HdUser | Record<string, Object>): HdUser {
+  const raw = data as Record<string, Object>
+  // ArkTS 不支持对象展开运算符 {...obj}，直接使用断言修改引用，或手动拷贝
+  const user = data as HdUser
+
+  // Nickname
+  if (!user.nickName && raw['nickname']) {
+    user.nickName = raw['nickname'] as string
+  }
+
+  // RealName
+  if (!user.realName && raw['realname']) {
+    user.realName = raw['realname'] as string
+  }
+
+  // StudentNo
+  if (!user.studentNo && raw['studentno']) {
+    user.studentNo = raw['studentno'] as string
+  }
+  
+  // Gender (some backends might return 'sex')
+  if (user.gender === undefined && raw['sex'] !== undefined) {
+    user.gender = raw['sex'] as number
+  }
+
+  return user
 }
 
 export const AUTH_STORE_KEY = 'authStore'

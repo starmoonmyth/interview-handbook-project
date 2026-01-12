@@ -1,8 +1,12 @@
+
 import { authStore, BasicConstant, HdClockIn, hdHttp, HdSearch, HdUser } from '@itcast/basic'
-import { HomeCategoryComp } from '../components/HomeCategoryComp'
+import { CourseCardComp } from '../components/CourseCardComp'
+import { CourseModel, CourseData } from '../models/CourseModel'
 import { HomeDayQuestionComp } from '../components/HomeDayQuestionComp'
 import { HomeQuestionCardComp } from '../components/HomeQuestionCardComp'
 import { promptAction, router } from '@kit.ArkUI'
+import { BusinessError } from '@ohos.base'
+import { CourseService } from '../services/CourseService'
 
 @Component
 export struct HomeComp {
@@ -17,15 +21,28 @@ export struct HomeComp {
   opacityValue: number = 0
   @State
   areaHeight: number = 0
+  @State recommendedList: CourseModel[] = []
+  @State allCourseList: CourseModel[] = []
+  @State filterCourseList: CourseModel[] = []
+  @State searchKeyword: string = ''
 
-  @Builder
-  SwiperItemBuilder(src: ResourceStr) {
-    Flex() {
-      Image(src)
-        .objectFit(ImageFit.Fill)
-    }
-    .padding({ left: BasicConstant.SPACE_LG, right: BasicConstant.SPACE_LG })
-    .aspectRatio(2.8)
+  aboutToAppear(): void {
+    this.getCourseList()
+  }
+
+  getCourseList() {
+    CourseService.getCourseList().then(res => {
+      let courses = res.data || []
+
+      // 推荐课程：参加人数最多的前4个
+      this.recommendedList = [...courses]
+        .sort((a, b) => (b.studentCount || 0) - (a.studentCount || 0))
+        .slice(0, 4)
+      
+      // 所有课程：按上传顺序（ID倒序）
+      this.allCourseList = [...courses].sort((a, b) => b.id - a.id)
+      this.filterCourseList = this.allCourseList
+    })
   }
 
   scrollStatusBar(y: number) {
@@ -47,69 +64,25 @@ export struct HomeComp {
       Scroll(this.scroller) {
         Column() {
           Column() {
-
-            Row({ space: BasicConstant.SPACE_LG }) {
-              HdSearch()
-                .layoutWeight(1)
-                .onClick(() => {
-                  interface Params {
-                    questionBankType: 9 | 10
-                  }
-
-                  authStore.checkAuth({
-                    url: 'pages/SearchPage',
-                    params: ({ questionBankType: 10 }) as Params
-                  })
-                })
-              HdClockIn({ clockCount: this.user.clockinNumbers })
-                .onClick(() => {
-                  if (this.user?.token) {
-                    if (this.user.clockinNumbers) {
-                      router.pushUrl({ url: 'pages/ClockedPage' })
-                    } else {
-                      // 打卡
-                      hdHttp.post<Record<string, number>>('clockin').then(async (res) => {
-                        promptAction.showToast({ message: '打卡成功' })
-                        this.user.clockinNumbers = res.data.clockinNumbers
-                        await authStore.setUser(this.user)
-                        router.pushUrl({ url: 'pages/ClockedPage' })
-                      })
-                    }
-                  } else {
-                    router.pushUrl({ url: 'pages/LoginPage' })
-                  }
-                })
-            }
-            .padding($r('app.float.common_gutter'))
-
-            Row() {
-              Swiper() {
-                this.SwiperItemBuilder($r('app.media.banner_qa'))
-                this.SwiperItemBuilder($r('app.media.banner_pj'))
-                this.SwiperItemBuilder($r('app.media.banner_ai'))
-              }
-              .autoPlay(true)
-              .indicator(DotIndicator.dot()
-                .selectedColor(Color.White)
-                .bottom(BasicConstant.SPACE_SM)
-                .itemHeight(BasicConstant.SPACE_SM)
-                .selectedItemHeight(BasicConstant.SPACE_SM)
-                .itemWidth(BasicConstant.SPACE_MD)
-                .selectedItemWidth(BasicConstant.SPACE_MD))
-            }
-
-            HomeDayQuestionComp()
-
-            Text('热门题库')
+            Text('推荐课程')
               .width('100%')
               .fontWeight(500)
-              .padding({ left: BasicConstant.SPACE_LG, bottom: BasicConstant.SPACE_MD })
+              .padding({ left: BasicConstant.SPACE_LG, bottom: BasicConstant.SPACE_MD, top: BasicConstant.SPACE_MD })
+
             Scroll() {
               Row({ space: BasicConstant.SPACE_MD }) {
-                HomeQuestionCardComp({ linearColor: 0, title: '鸿蒙NEXT', subTitle: '面通热门题单' })
-                HomeQuestionCardComp({ linearColor: 1, title: '企业题库', subTitle: '2000+ 企业面试题' })
-                HomeQuestionCardComp({ linearColor: 2, title: '程序员面试经典', subTitle: '独家授权' })
-                HomeQuestionCardComp({ linearColor: 3, title: '前端题单', subTitle: '面通热门题单' })
+                ForEach(this.recommendedList, (item: CourseModel) => {
+                  CourseCardComp({ course: item })
+                    .onClick(() => {
+                      router.pushUrl({
+                        url: 'pages/CourseDetailPage',
+                        params: {
+                          id: item.id,
+                          title: item.title
+                        }
+                      })
+                    })
+                })
               }
             }
             .scrollable(ScrollDirection.Horizontal)
@@ -121,7 +94,79 @@ export struct HomeComp {
             this.areaHeight = n.height as number
           })
 
-          HomeCategoryComp()
+          Column() {
+            // Search Bar
+            Search({ placeholder: '搜索课程' })
+              .width('100%')
+              .height(40)
+              .backgroundColor('#F5F5F5')
+              .placeholderColor(Color.Grey)
+              .placeholderFont({ size: 14 })
+              .textFont({ size: 14 })
+              .margin({ bottom: 16 })
+              .onChange((value: string) => {
+                this.searchKeyword = value
+                if (!value) {
+                  this.filterCourseList = this.allCourseList
+                } else {
+                  this.filterCourseList = this.allCourseList.filter(item =>
+                  item.title.toLowerCase().includes(value.toLowerCase())
+                  )
+                }
+              })
+
+            // Vertical Course List
+            if (this.filterCourseList.length === 0) {
+              Text('暂无课程')
+                .fontSize(14)
+                .fontColor('#999')
+                .margin({ top: 20 })
+                .width('100%')
+                .textAlign(TextAlign.Center)
+            } else {
+              ForEach(this.filterCourseList, (item: CourseModel) => {
+                Row() {
+                  Image(item.cover)
+                    .width(120)
+                    .height(80)
+                    .borderRadius(6)
+                    .objectFit(ImageFit.Cover)
+                    .backgroundColor('#F0F0F0')
+
+                  Column() {
+                    Text(item.title)
+                      .fontSize(16)
+                      .fontWeight(FontWeight.Medium)
+                      .maxLines(2)
+                      .textOverflow({ overflow: TextOverflow.Ellipsis })
+                      .layoutWeight(1)
+
+                    Row() {
+                      Text(item.teacherName && item.teacherName !== '' ? item.teacherName : item.teacher || '讲师')
+                        .fontSize(12).fontColor('#999')
+                    }
+                    .width('100%')
+                  }
+                  .layoutWeight(1)
+                  .height(80)
+                  .padding({ left: 12, top: 4, bottom: 4 })
+                  .justifyContent(FlexAlign.SpaceBetween)
+                  .alignItems(HorizontalAlign.Start)
+                }
+                .width('100%')
+                .margin({ bottom: 16 })
+                .onClick(() => {
+                  router.pushUrl({
+                    url: 'pages/CourseDetailPage',
+                    params: { id: item.id, title: item.title }
+                  })
+                })
+              })
+            }
+          }
+          .padding({ left: 16, right: 16, top: 16, bottom: 20 })
+          .backgroundColor(Color.White)
+          .width('100%')
         }
         .backgroundColor($r('app.color.common_gray_bg'))
         .alignItems(HorizontalAlign.Start)

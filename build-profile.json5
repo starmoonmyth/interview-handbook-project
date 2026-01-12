@@ -4,7 +4,7 @@
       {
         "name": "default",
         "signingConfig": "default",
-        "compatibleSdkVersion": "5.0.0(12)",
+        "compatibleSdkVersion": "5.0.5(17)",
         "runtimeOS": "HarmonyOS"
       }
     ],
@@ -21,13 +21,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "/Users/zhousg/.ohos/config/default_interview-handbook-project_HLKK-jbFP2i_86C1kdyuRrPB-WXQXKhyYK6HPBpJVIo=.cer",
-          "storePassword": "0000001B299575FFA0D251AB9048152F8DB1430243AF126AFB73D0AACCDEC5120CA2D568368642F6DD6EA9",
+          "certpath": "/Users/zhouzhe/.ohos/config/default_interview-handbook-project_1abPuZUJy2vzPtrgD9Wpx32Ykgexwro6UH-s4fCN2Qw=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001BC94D0060CB5BD78EE7F34D46CFAF8C73FA3CBA8BBC26A2CC4B3AC95BCC425A4A36474F1514BECA",
-          "profile": "/Users/zhousg/.ohos/config/default_interview-handbook-project_HLKK-jbFP2i_86C1kdyuRrPB-WXQXKhyYK6HPBpJVIo=.p7b",
+          "keyPassword": "0000001BC32AC3B126304B8C3C579E9584A14FEEB01F5ECB9CEF524FF402F48B115832DECBD852C5503941",
+          "profile": "/Users/zhouzhe/.ohos/config/default_interview-handbook-project_1abPuZUJy2vzPtrgD9Wpx32Ykgexwro6UH-s4fCN2Qw=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "/Users/zhousg/.ohos/config/default_interview-handbook-project_HLKK-jbFP2i_86C1kdyuRrPB-WXQXKhyYK6HPBpJVIo=.p12"
+          "storeFile": "/Users/zhouzhe/.ohos/config/default_interview-handbook-project_1abPuZUJy2vzPtrgD9Wpx32Ykgexwro6UH-s4fCN2Qw=.p12",
+          "storePassword": "0000001B7CB2E88DBA354EA89721B8D2861E8A4856DFA90D1173C738B67BFDB5988E749583C8CE740DAA14"
         }
       }
     ]

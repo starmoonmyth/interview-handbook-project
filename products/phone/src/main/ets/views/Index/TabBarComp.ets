@@ -1,6 +1,5 @@
-import { HomeComp } from '@itcast/home'
+import { HomeComp, ExamComp } from '@itcast/home'
 import { ProjectComp } from '@itcast/project'
-import { InterviewComp } from '@itcast/interview'
 import { MineComp } from '@itcast/mine'
 import { BasicConstant } from '@itcast/basic'
 import mediaquery from '@ohos.mediaquery'
@@ -42,8 +41,8 @@ export struct TabBarComp {
       ForEach(TabBarItems, (item: TabBarModel, index: number) => {
         TabContent() {
           if (index === 0) HomeComp()
-          else if (index === 1) ProjectComp()
-          else if (index === 2) InterviewComp()
+          else if (index === 1) ExamComp()
+          else if (index === 2) ProjectComp()   // index 2: 课堂 (Classroom) -> ProjectComp
           else MineComp()
         }
         .tabBar(this.TabBarBuilder(item, index))

@@ -17,6 +17,12 @@
       "tablet",
       "2in1"
     ],
+    "metadata": [
+      {
+        "name": "network_security_config",
+        "resource": "$profile:network_config"
+      }
+    ],
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",

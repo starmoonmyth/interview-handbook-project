@@ -1,6 +1,7 @@
 import { authStore, getTimeText, HdClockIn, hdHttp, HdUser } from '@itcast/basic'
 import { promptAction, router } from '@kit.ArkUI'
 import { OptionalRouterParams, OptionalType } from './OptionalComp'
+import { CourseService, AssignmentModel, ChapterData, StudentProgressData } from '@itcast/home'
 
 interface Nav {
   icon: ResourceStr
@@ -16,16 +17,69 @@ interface Tool {
   onClick?: () => void
 }
 
+class TaskCount {
+  pending: number = 0
+  completed: number = 0
+  total: number = 0
+}
+
 @Component
 export struct MineComp {
   @StorageProp('topHeight')
   topHeight: number = 0
   @StorageProp('user')
+  @Watch('initData')
   user: HdUser = {} as HdUser
   @StorageProp('colorMode')
   colorMode: number = -1
   @State
   isPreview: boolean = false
+  @State joinedCoursesCount: number = 0
+  @State pendingTasksCount: number = 0
+  @State passRate: string = '0%'
+
+  aboutToAppear(): void {
+    this.initData()
+  }
+
+  initData() {
+    if (this.user && this.user.token) {
+      CourseService.getStudyInfo().then(res => {
+        if (res.data) {
+          // 如果后端已经返回了百分号，就不需要再加了；或者后端返回的是数字，这里统一处理
+          // 假设后端返回的是数字 (如 50)，则加 %；如果返回的是字符串且带 %，则直接使用
+          // 根据 StudyInfoData 接口定义，passRate 是 number，所以这里通常应该是数字
+          // 但根据用户反馈 "50%%"，说明可能后端返回了带%的字符串或者这里重复加了
+          // 如果后端返回的是数字，我们加上 %；
+          // 如果后端返回的已经是字符串形式 (如 "50%")，这里再加就会变成 "50%%"
+          // 但 CourseModel.ets 定义是 number，所以应该是 res.data.passRate 是 number
+          // 用户说"后端返回数据的时候就带了百分号"，那说明接口定义可能不准确，或者后端返回的数据类型是 string
+          // 我们做个兼容处理
+          const rate = res.data.passRate
+          if (typeof rate === 'string' && (rate as string).includes('%')) {
+             this.passRate = rate as string
+          } else {
+             this.passRate = rate + '%'
+          }
+          this.joinedCoursesCount = res.data.courseCount
+          this.pendingTasksCount = res.data.pendingTasks
+        } else {
+          this.resetData()
+        }
+      }).catch(() => {
+        this.resetData()
+      })
+    } else {
+      // 未登录时清零
+      this.resetData()
+    }
+  }
+
+  resetData() {
+    this.joinedCoursesCount = 0
+    this.pendingTasksCount = 0
+    this.passRate = '0%'
+  }
 
   @Builder
   navBuilder(nav: Nav) {
@@ -94,6 +148,51 @@ export struct MineComp {
       })
   }
 
+  @Builder
+  dataBoardBuilder() {
+    Row() {
+      Column({ space: 4 }) {
+        Text(this.pendingTasksCount.toString())
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.pendingTasksCount > 0 ? '#fa711d' : $r('app.color.black')) // 高亮显示
+        Text('待办任务')
+          .fontSize(12)
+          .fontColor($r('app.color.common_gray_01'))
+      }
+      .layoutWeight(1)
+      .onClick(() => {
+         // 跳转到考试Tab (Index 1)
+         // 注意：这里需要通过 emitter 通知 Index 页面切换 Tab
+         // 暂且保留点击反馈，具体跳转逻辑已在 TabBarComp 实现
+      })
+
+      Column({ space: 4 }) {
+        Text(this.passRate)
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+        Text('课程通过率')
+          .fontSize(12)
+          .fontColor($r('app.color.common_gray_01'))
+      }
+      .layoutWeight(1)
+
+      Column({ space: 4 }) {
+        Text(this.joinedCoursesCount.toString())
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+        Text('已修课程')
+          .fontSize(12)
+          .fontColor($r('app.color.common_gray_01'))
+      }
+      .layoutWeight(1)
+    }
+    .backgroundColor($r('app.color.white'))
+    .borderRadius(8)
+    .padding(16)
+    .justifyContent(FlexAlign.SpaceAround)
+  }
+
   build() {
     Column({ space: 16 }) {
       Row({ space: 12 }) {
@@ -149,81 +248,14 @@ export struct MineComp {
             })
         }
 
-        HdClockIn({ clockCount: this.user.clockinNumbers })
-          .onClick(() => {
-            if (this.user?.token) {
-              if (this.user.clockinNumbers) {
-                router.pushUrl({ url: 'pages/ClockedPage' })
-              } else {
-                // 打卡
-                hdHttp.post<Record<string, number>>('clockin').then(async (res) => {
-                  promptAction.showToast({ message: '打卡成功' })
-                  this.user.clockinNumbers = res.data.clockinNumbers
-                  await authStore.setUser(this.user)
-                  router.pushUrl({ url: 'pages/ClockedPage' })
-                })
-              }
-            } else {
-              router.pushUrl({ url: 'pages/LoginPage' })
-            }
-          })
       }
       .width('100%')
       .height(100)
       .margin({ top: this.topHeight })
 
-      GridRow({ columns: 4 }) {
-        this.navBuilder({
-          icon: $r('app.media.ic_mine_history'), name: '历史记录', onClick: () => {
-            authStore.checkAuth({
-              url: 'pages/OptionalPage',
-              params: { type: OptionalType.HISTORY } as OptionalRouterParams
-            })
-          }
-        })
-        this.navBuilder({
-          icon: $r('app.media.ic_mine_collect'), name: '我的收藏', onClick: () => {
-            authStore.checkAuth({
-              url: 'pages/OptionalPage',
-              params: { type: OptionalType.COLLECT } as OptionalRouterParams
-            })
-          }
-        })
-        this.navBuilder({
-          icon: $r('app.media.ic_mine_like'), name: '我的点赞', onClick: () => {
-            authStore.checkAuth({
-              url: 'pages/OptionalPage',
-              params: { type: OptionalType.LIKE } as OptionalRouterParams
-            })
-          }
-        })
-        this.navBuilder({
-          icon: $r('app.media.ic_mine_study'),
-          name: '累计学时',
-          other: getTimeText(this.user.totalTime),
-          onClick: () => {
-            authStore.checkAuth({
-              url: 'pages/StudyTimePage'
-            })
-          }
-        })
-      }
-      .backgroundColor($r('app.color.white'))
-      .padding(16)
-      .borderRadius(8)
+      this.dataBoardBuilder()
 
       Column() {
-        this.toolsBuilder({
-          icon: $r('app.media.ic_mine_notes'), name: '开发常用词', onClick: () => {
-            authStore.checkAuth({
-              url: 'pages/WordPage'
-            })
-          }
-        })
-        this.toolsBuilder({ icon: $r('app.media.ic_mine_ai'), name: '面通AI' })
-        this.toolsBuilder({ icon: $r('app.media.ic_mine_invite'), name: '推荐分享' })
-        this.toolsBuilder({ icon: $r('app.media.ic_mine_file'), name: '意见反馈' })
-        this.toolsBuilder({ icon: $r('app.media.ic_mine_info'), name: '关于我们' })
         this.toolsBuilder({
           icon: $r('app.media.ic_mine_setting'), name: '设置', onClick: () => {
             authStore.checkAuth({
@@ -239,7 +271,7 @@ export struct MineComp {
     .padding($r('app.float.common_gutter'))
     .backgroundColor($r('app.color.common_gray_bg'))
     .linearGradient({
-      colors: [[this.colorMode === 1 ? '#FFB071' : '#ff8533', 0], [$r('app.color.common_gray_bg'), 0.3], [$r('app.color.common_gray_bg'), 1]]
+      colors: [[this.colorMode === 1 ? '#007DFF' : '#007DFF', 0], [$r('app.color.common_gray_bg'), 0.3], [$r('app.color.common_gray_bg'), 1]]
     })
     .width('100%')
     .height('100%')

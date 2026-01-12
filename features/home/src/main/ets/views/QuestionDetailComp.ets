@@ -67,7 +67,7 @@ export struct QuestionDetailComp {
       .then(res => {
         this.item = res.data
         this.list[this.index] = res.data
-        this.webController.runJavaScript(`writeContent(\`${this.item.answer || ''}\`)`)
+        this.webController.runJavaScript(`writeContent(\`${this.item.content || ''}\`)`)
         this.dialog.close()
       })
       .catch(() => {
@@ -92,11 +92,11 @@ export struct QuestionDetailComp {
     // 切换
     const newItem = this.list[this.index]
     this.item.id = newItem.id
-    if (!newItem.answer) {
+    if (!newItem.content) {
       await this.getData()
     } else {
       this.item = newItem
-      this.webController.runJavaScript(`writeContent(\`${this.item.answer || ''}\`)`)
+      this.webController.runJavaScript(`writeContent(\`${this.item.content || ''}\`)`)
     }
   }
 
@@ -201,7 +201,7 @@ export struct QuestionDetailComp {
       this.TitleBuilder('答案：')
       HdWeb({
         controller: this.webController, onLoad: () => {
-          this.webController.runJavaScript(`writeContent(\`${this.item.answer || ''}\`)`)
+          this.webController.runJavaScript(`writeContent(\`${this.item.content || ''}\`)`)
         }
       })
         .layoutWeight(1)

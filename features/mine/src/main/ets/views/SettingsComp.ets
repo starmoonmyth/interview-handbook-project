@@ -116,7 +116,13 @@ export struct SettingsComp {
             })
           }
         })
-        this.toolsBuilder({ name: '账号设置', radius: 2 })
+        this.toolsBuilder({
+          name: '账号设置', radius: 2, onClick: () => {
+            authStore.checkAuth({
+              url: 'pages/PasswordEditPage'
+            })
+          }
+        })
         Blank()
           .height(15)
         this.toolsBuilder({

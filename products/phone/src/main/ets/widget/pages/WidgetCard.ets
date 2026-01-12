@@ -53,7 +53,7 @@ struct WidgetCard {
             .width(20)
             .height(20)
             .borderRadius(4)
-          Text('面试通')
+          Text('知舟')
             .fontSize(16)
             .fontColor($r('app.color.white'))
         }

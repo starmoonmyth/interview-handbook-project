@@ -26,7 +26,7 @@ export class QuestionItemModel implements QuestionItem {
 }
 
 export interface QuestionDetail extends QuestionItem {
-  answer: string
+  content: string
   collectFlag: 0 | 1
   likeFlag: 0 | 1
   stage: Array<string>

@@ -24,17 +24,17 @@ export const TabBarItems: TabBarModel[] = [
   {
     defaultIcon: $r('app.media.tabbar_home'),
     activeIcon: $r('app.media.tabbar_home_fill'),
-    label: '首页'
+    label: '课程'
   },
   {
     defaultIcon: $r('app.media.tabbar_project'),
     activeIcon: $r('app.media.tabbar_project_fill'),
-    label: '项目'
+    label: '考试'
   },
   {
     defaultIcon: $r('app.media.tabbar_interview'),
     activeIcon: $r('app.media.tabbar_interview_fill'),
-    label: '面经'
+    label: '课堂'
   },
   {
     defaultIcon: $r('app.media.tabbar_mine'),

@@ -1,3 +1,4 @@
+import { authStore, logger } from '@itcast/basic';
 import { TabBarComp } from '../views/Index/TabBarComp';
 import { themeManager } from '@itcast/basic';
 import { emitter } from '@kit.BasicServicesKit';
@@ -12,9 +13,12 @@ struct Index {
   activeIndex: number = 0
 
   aboutToAppear(): void {
+    themeManager.initThemeSetting()
+    authStore.initUser()
     emitter.on({ eventId: 10000 }, (e) => {
-      if (e.data && e.data.activeIndex) {
-        this.activeIndex = e.data.activeIndex
+      logger.info('Index', 'Receive event 10000', JSON.stringify(e))
+      if (e.data && e.data.activeIndex !== undefined) {
+        this.activeIndex = e.data.activeIndex as number
       }
     })
   }
@@ -26,6 +30,7 @@ struct Index {
 
   onPageShow(): void {
     this.onChangeIndex()
+    authStore.initUser() // 每次页面显示时确保用户数据是最新的
   }
 
   onPageHide(): void {

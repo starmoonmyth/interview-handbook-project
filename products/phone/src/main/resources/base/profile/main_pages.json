@@ -12,6 +12,13 @@
     "pages/ProfileEditPage",
     "pages/SearchPage",
     "pages/BootPage",
-    "pages/OptionalPage"
+    "pages/OptionalPage",
+    "pages/CourseDetailPage",
+    "pages/AssignmentPracticePage",
+    "pages/RegisterPage",
+    "pages/VideoPlayPage",
+    "pages/WebBrowserPage",
+    "pages/AssignmentResultPage",
+    "pages/PasswordEditPage"
   ]
 }

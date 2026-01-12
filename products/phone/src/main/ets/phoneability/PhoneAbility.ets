@@ -58,7 +58,7 @@ export default class PhoneAbility extends UIAbility {
     // Main window is created, set main page for this ability
     logger.info('Ability onWindowStageCreate');
 
-    windowStage.loadContent('pages/BootPage', (err, data) => {
+    windowStage.loadContent('pages/Index', (err, data) => {
       if (err.code) {
         logger.error('Failed to load the content. Cause: %{public}s', JSON.stringify(err) ?? '');
         return;

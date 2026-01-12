@@ -18,12 +18,16 @@ export { HdList, HdListController } from './src/main/ets/components/HdList'
 
 export { BasicConstant } from './src/main/ets/constants/BasicConstant'
 
+export { NetworkConfig } from './src/main/ets/constants/NetworkConfig'
+
 export { hdHttp, HdResponse } from './src/main/ets/utils/request'
 
-export { authStore, HdUser, AUTH_STORE_KEY } from './src/main/ets/utils/auth'
+export { authStore, HdUser, AUTH_STORE_KEY, normalizeUser } from './src/main/ets/utils/auth'
 
 export { logger } from './src/main/ets/utils/logger'
 
-export { getTimeText, getPercentText } from './src/main/ets/utils/base'
+export { getTimeText, getPercentText, getDeviceId } from './src/main/ets/utils/base'
 
 export { themeManager } from './src/main/ets/utils/themeManager'
+
+export { InstallTimeUtil } from './src/main/ets/utils/InstallTimeUtil'
