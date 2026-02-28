@@ -1,0 +1,478 @@
+# 5.1 系统功能的实现
+
+## 5.1.1 学生模块
+
+### 1.学生注册
+学生注册功能基于 HarmonyOS 的 ArkUI 框架开发。在 `RegisterPage` 页面中，应用通过正则表达式对用户输入的学号、密码等字段进行本地格式校验。校验通过后，数据封装为 JSON 对象并通过 HTTP 请求提交至后端。后端 Controller 接收请求后，Service 层会查询数据库验证用户名是否重名，并使用 BCrypt 算法对密码进行哈希加密存储。这种设计不仅保护了用户隐私，也确保了注册数据的规范性。
+
+#### 核心代码实现
+```java
+// AuthController.java - 用户注册逻辑
+@PostMapping("/register")
+public Result<String> register(@RequestBody Map<String, Object> params) {
+    String username = (String) params.get("username");
+    String password = (String) params.get("password");
+    String role = (String) params.get("role");
+    // ... 参数解析
+    
+    User user = new User();
+    user.setUsername(username);
+    user.setPassword(password); // Service层会进行BCrypt加密
+    user.setRole(role);
+    // ... 设置其他属性
+    
+    return userService.register(user, teacherCode);
+}
+```
+
+### 2.学生登录
+登录是学生使用系统的主要入口。用户在输入账号密码点击登录后，APP 会同时读取设备的唯一标识（如 UUID 或安装时间戳），将这三项数据发往服务端。后端 AuthController 验证密码正确性后，会调用 DeviceService 查询该账号绑定的设备总数。如果设备数未达到 50 台上限，服务器将签发 JWT Token 返回给客户端，完成登录流程；否则会返回错误提示，阻止登录。
+
+#### 核心代码实现
+```java
+// DeviceServiceImpl.java - 设备数量限制检查
+@Override
+@Transactional
+public synchronized boolean checkAndRegisterDevice(String macAddress, Long userId) {
+    // 1. 检查当前设备是否已注册
+    long count = this.count(new QueryWrapper<Device>().eq("mac_address", macAddress));
+    if (count > 0) return true; // 已注册，直接允许
+
+    // 2. 检查该账号绑定的总设备数
+    long total = this.count(new QueryWrapper<Device>()); // 注意：实际业务中应过滤userId
+    if (total >= 50) {
+        return false; // 超过 50 台，拒绝登录
+    }
+
+    // 3. 注册新设备
+    Device device = new Device();
+    device.setMacAddress(macAddress);
+    device.setUserId(userId);
+    this.save(device);
+    return true;
+}
+```
+
+### 3.课程浏览
+课程浏览主要包括列表展示和详情查看。列表页使用了 HarmonyOS 的 `List` 组件和懒加载机制，以保证在数据量大时的滑动流畅性。当点击某个课程卡片时，APP 通过路由跳转到详情页，并调用 `/hm/course/{id}/detail` 接口。该接口返回的数据包含课程基本信息以及递归查询出的章节目录树，前端解析后渲染出完整的课程大纲。
+
+#### 核心代码实现
+```java
+// CourseController.java - 获取课程详情及章节树
+@GetMapping("/{id}/detail")
+public Result<Map<String, Object>> getCourseDetail(@PathVariable Long id) {
+    Course course = courseService.getById(id);
+    // ... 获取基本信息
+    
+    // 获取章节列表
+    List<CourseChapter> chapters = chapterService.list(
+        new QueryWrapper<CourseChapter>().eq("course_id", id).orderByAsc("sort_order")
+    );
+    
+    // 获取所有资源并按章节分组
+    List<Long> chapterIds = chapters.stream().map(CourseChapter::getId).collect(Collectors.toList());
+    
+    // 组装树形结构返回前端
+    List<Map<String, Object>> chapterTree = new ArrayList<>();
+    for (CourseChapter chapter : chapters) {
+        Map<String, Object> chMap = new HashMap<>();
+        chMap.put("title", chapter.getTitle());
+        chMap.put("resources", resourcesMap.getOrDefault(chapter.getId(), new ArrayList<>()));
+        chapterTree.add(chMap);
+    }
+    
+    return Result.success(data);
+}
+```
+
+### 4.课程学习
+
+课程学习是系统的核心功能模块，支持视频观看与课件阅读两种学习模式。
+
+#### 4.1 视频播放
+应用集成了 HarmonyOS 原生 `Video` 组件来实现高性能的视频播放。相比于传统的 WebView 加载方式，原生组件在加载速度、内存占用和解码性能上均有显著优势。播放页面支持手势调节进度、音量和亮度。同时，代码中实现了自动保存播放进度的逻辑：当用户暂停或退出播放时，系统会将当前时间戳上报至后端，确保下次进入时能从断点处继续学习。
+
+##### 核心代码实现
+```typescript
+// VideoPlayPage.ets - 原生视频播放实现
+@Entry
+@Component
+struct VideoPlayPage {
+  @State url: string = ''
+  controller: VideoController = new VideoController()
+
+  build() {
+    Column() {
+      // 头部导航栏 (省略)
+      
+      // 原生 Video 组件
+      Video({
+        src: this.url,
+        controller: this.controller
+      })
+        .width('100%')
+        .layoutWeight(1)
+        .autoPlay(true)
+        .controls(true) // 显示原生控制栏
+        .objectFit(ImageFit.Contain)
+        .onStart(() => {
+          logger.info('VideoPlayPage', 'Video started')
+        })
+        .onError(() => {
+          promptAction.showToast({ message: '视频播放失败' })
+        })
+    }
+    .backgroundColor(Color.Black)
+  }
+}
+```
+
+#### 4.2 课件查看
+对于 PDF 和 Word 格式的教学课件，系统采用“下载-预览”的策略。用户点击课件资源时，应用首先调用 `request.downloadFile` 接口将文件下载至应用沙箱的 `filesDir` 目录。下载完成后，利用 HarmonyOS 的 `StartAbility` 机制，通过 `want.action.viewData` 动作唤起系统中已安装的文档阅读器（如 WPS 或系统预览服务）打开文件。这种设计避免了在应用内集成庞大的文档渲染引擎，有效控制了包体积。
+
+##### 核心代码实现
+```typescript
+// CourseDetailComp.ets - 课件下载与打开
+async downloadAndOpen(url: string, filename: string) {
+  const context = getContext(this) as common.UIAbilityContext;
+  const filePath = `${context.filesDir}/${filename}`;
+
+  // 1. 检查文件是否存在，不存在则下载
+  if (!fileIo.accessSync(filePath)) {
+    await request.downloadFile(context, { url: url, filePath: filePath });
+  }
+
+  // 2. 构造 Want 唤起外部应用打开
+  const type = filename.endsWith('.pdf') ? 'application/pdf' : 'application/msword';
+  const want: Want = {
+    action: 'ohos.want.action.viewData',
+    uri: fileUri.getUriFromPath(filePath),
+    type: type,
+    flags: wantConstant.Flags.FLAG_AUTH_READ_URI_PERMISSION
+  };
+
+  context.startAbility(want).catch((err) => {
+    promptAction.showToast({ message: '请安装文档查看器' });
+  });
+}
+```
+
+### 5.学情查看
+该功能用于展示学生的个人学习情况。APP 通过 `/hm/course/my` 接口拉取用户参加的所有课程数据。前端利用自定义的进度条组件，将后端返回的 `progress` 数值可视化展示。如果后端返回的 `is_passed` 字段为 true，界面上会显示“合格”图标，告知学生该课程已达标。
+
+#### 核心代码实现
+```java
+// CourseController.java - 获取我的课程进度
+@GetMapping("/my")
+public Result<List<Map<String, Object>>> getMyCourses(@RequestAttribute("currentUser") User currentUser) {
+    // 查询用户参加的课程记录
+    List<UserCourse> userCourses = userCourseService.list(new QueryWrapper<UserCourse>()
+            .eq("user_id", currentUser.getId()));
+
+    List<Map<String, Object>> resultList = new ArrayList<>();
+    for (UserCourse uc : userCourses) {
+        // 组装课程信息与进度状态
+        Map<String, Object> map = new HashMap<>();
+        map.put("courseId", uc.getCourseId());
+        map.put("progress", uc.getProgress()); // 学习进度 0-100
+        map.put("isPassed", uc.getIsPassed()); // 是否合格
+        resultList.add(map);
+    }
+    return Result.success(resultList);
+}
+```
+
+### 6.信息管理
+信息管理模块提供了个人资料的修改功能。用户可以修改昵称、头像等基础信息。涉及密码修改等敏感操作时，系统要求必须输入旧密码进行验证。所有数据传输均采用 HTTPS 协议，防止传输过程中的信息截获。
+
+#### 核心代码实现
+```java
+// AuthController.java - 修改密码
+@PostMapping("/userInfo/password")
+public Result<String> changePassword(@RequestBody Map<String, String> params, @RequestAttribute("currentUser") User currentUser) {
+    String oldPassword = params.get("oldPassword");
+    // ... 验证参数
+
+    User user = userService.getById(currentUser.getId());
+    if (!user.getPassword().equals(oldPassword)) { // 实际应使用 BCrypt.checkpw
+        return Result.error(400, "旧密码错误");
+    }
+
+    user.setPassword(params.get("newPassword"));
+    userService.updateById(user);
+    return Result.success("密码修改成功");
+}
+```
+
+### 7.作业与考试
+作业与考试模块是检验学生学习效果的关键环节。功能流程包括作业列表查看、在线答题与提交、结果查看。
+
+#### 7.1 作业列表与状态管理
+在课程详情页，系统根据作业的起止时间与当前时间对比，计算出作业状态（未开始、进行中、已截止），并结合学生的提交记录（已提交、已批改）在 UI 上展示不同的标签颜色。点击“进行中”的作业可进入答题页面。
+
+#### 7.2 在线答题
+答题页面（`AssignmentPracticeComp`）支持单选题、多选题、填空题和简答题等多种题型。前端根据题目类型动态渲染不同的交互组件（如 `Checkbox` 或 `TextArea`）。用户作答时，答案被缓存在本地组件状态中。点击提交时，所有题目的答案被组装成 JSON 对象 `{ questionId: answer }` 发送给后端。
+
+#### 核心代码实现
+```typescript
+// AssignmentPracticeComp.ets - 提交作业逻辑
+submit() {
+  const answers: Record<string, string> = {}
+  // 收集所有题目答案
+  this.questions.forEach(q => {
+    answers[q.id.toString()] = q.userAnswer
+  })
+
+  // 调用 API 提交
+  CourseService.submitAssignment({
+    assignmentId: this.assignmentId,
+    answers: answers
+  }).then(() => {
+     promptAction.showToast({ message: '提交成功' })
+     router.back()
+  }).catch((err) => {
+     promptAction.showToast({ message: '提交失败: ' + err.message })
+  })
+}
+```
+
+## 5.1.2 教师模块
+
+### 1.教师注册
+教师注册采用了邀请码验证机制，以确保身份的真实性。在 Web 端注册页面，教师除填写基本信息外，必须输入有效的邀请码。后端接收到请求后，会查询 `verification_codes` 表，确认邀请码存在且未被使用后才允许注册，注册成功后系统自动将该邀请码标记为失效。
+
+#### 核心代码实现
+```java
+// UserServiceImpl.java - 教师注册验证逻辑
+@Transactional
+public Result<String> register(User user, String teacherCode) {
+    if ("TEACHER".equals(user.getRole())) {
+        // 校验验证码
+        VerificationCode code = codeService.getOne(new QueryWrapper<VerificationCode>()
+            .eq("code", teacherCode).eq("is_used", 0));
+            
+        if (code == null) {
+            return Result.error(400, "无效的教师邀请码");
+        }
+        // 标记为已使用
+        code.setIsUsed(1);
+        codeService.updateById(code);
+    }
+    this.save(user);
+    return Result.success("注册成功");
+}
+```
+
+### 2.教师登录
+教师登录基于 RBAC 权限模型。前端使用 Element Plus 组件构建表单，用户提交凭证后，后端验证通过并返回 Token。前端将 Token 存入 LocalStorage，并在后续的所有 Axios 请求头中携带该 Token。后端拦截器通过解析 Token 中的角色字段，判断用户是否有权访问教师端接口。
+
+#### 核心代码实现
+```javascript
+// Login.vue (Vue3) - 登录逻辑
+const handleLogin = async () => {
+  try {
+    const res = await api.post('/hm/login', loginForm);
+    if (res.code === 10000) {
+      const { token, userInfo } = res.data;
+      // 存储 Token 用于后续请求鉴权
+      localStorage.setItem('token', token);
+      
+      // 根据角色跳转
+      if (userInfo.role === 'TEACHER') {
+        router.push('/teacher/dashboard');
+      }
+    }
+  } catch (err) {
+    ElMessage.error(err.message);
+  }
+};
+```
+
+### 3.课程发布
+课程发布涉及多个步骤。教师需要先上传封面图片并填写简介，然后进入章节管理页面添加目录结构，最后在章节下上传教学资源。为了保证数据的完整性，后端使用了 `@Transactional` 注解，确保课程、章节和资源信息的写入操作要么全部成功，要么在出现异常时全部回滚。
+
+#### 核心代码实现
+```java
+// TeacherController.java - 发布/更新课程
+@PostMapping("/course/add")
+public Result<String> addCourse(@RequestBody Course course) {
+    User user = getCurrentUser();
+    course.setTeacherId(user.getId());
+    // 自动填充讲师姓名
+    String teacherName = user.getRealName(); 
+    course.setTeacher(teacherName);
+    
+    courseService.save(course);
+    return Result.success("添加课程成功");
+}
+```
+
+### 4.作业批改
+在批改中心，教师可以看到所有待批改的学生作业。点击进入详情页，界面左侧显示学生提交的答案，右侧为评分区。客观题由系统自动判分，主观题需人工打分。教师确认无误后点击提交，后端将 `assignment_submissions` 表中的记录状态更新为 `GRADED`，完成批改。
+
+#### 核心代码实现
+```java
+// TeacherController.java - 提交批改结果
+@PostMapping("/grading/submit")
+public Result<String> submitGrade(@RequestBody Map<String, Object> params) {
+    Long id = Long.valueOf(params.get("id").toString());
+    Integer score = Integer.valueOf(params.get("score").toString());
+    
+    AssignmentSubmission submission = submissionService.getById(id);
+    // ... 权限校验
+    
+    submission.setScore(score);
+    submission.setTeacherComment((String) params.get("comment"));
+    submission.setStatus("GRADED"); // 更新状态为已批改
+    
+    submissionService.updateById(submission);
+    return Result.success("批改完成");
+}
+```
+
+### 5.课程通过管理
+教师可以手动管理学生的结课状态。在学生列表页，教师结合学生的观看进度和作业成绩进行综合评估。对于达到要求的学生，教师点击“通过”按钮，后端将更新选课记录表中的 `is_passed` 状态，学生端即可看到合格标记。
+
+#### 核心代码实现
+```java
+// TeacherController.java - 更新学生结课状态
+@PostMapping("/course/student/update")
+public Result<String> updateStudentStatus(@RequestBody Map<String, Object> params) {
+    Long userId = Long.valueOf(params.get("userId").toString());
+    Long courseId = Long.valueOf(params.get("courseId").toString());
+    Boolean isPassed = Boolean.valueOf(params.get("isPassed").toString());
+
+    UserCourse userCourse = userCourseService.getOne(new QueryWrapper<UserCourse>()
+        .eq("user_id", userId).eq("course_id", courseId));
+        
+    userCourse.setIsPassed(isPassed);
+    userCourseService.updateById(userCourse);
+    
+    return Result.success("更新成功");
+}
+```
+
+### 6.信息管理
+教师可以在此模块维护个人的教工号、简介等信息。前端提供了编辑表单，并在提交前对输入内容进行简单的格式验证。数据提交后，后端更新 `users` 表中对应的记录。
+
+#### 核心代码实现
+```java
+// AuthController.java - 更新个人资料
+@PostMapping("/userInfo/profile")
+public Result<String> updateProfile(@RequestBody User user, 
+                                  @RequestAttribute("currentUser") User currentUser) {
+    User userToUpdate = new User();
+    userToUpdate.setId(currentUser.getId());
+    
+    if (user.getRealName() != null) userToUpdate.setRealName(user.getRealName());
+    if (user.getIntro() != null) userToUpdate.setIntro(user.getIntro());
+    // ... 更新其他字段
+    
+    userService.updateById(userToUpdate);
+    return Result.success("更新成功");
+}
+```
+
+### 7.学情查看
+系统使用 ECharts 图表库为教师展示教学数据。后端聚合查询各课程的选课人数、及格率等指标，前端将这些数据渲染成柱状图或饼图。教师还可以点击查看具体学生的详细学习日志，了解其对每个视频资源的观看情况。
+
+#### 核心代码实现
+```java
+// TeacherController.java - 获取课程统计数据
+@GetMapping("/stats")
+public Result<List<Map<String, Object>>> getStats() {
+    User teacher = getCurrentUser();
+    List<Course> courses = courseService.list(new QueryWrapper<Course>()
+            .eq("teacher_id", teacher.getId()));
+    
+    for (Course course : courses) {
+        // 统计学生总数
+        long studentCount = userCourseService.count(
+            new QueryWrapper<UserCourse>().eq("course_id", course.getId())
+        );
+        // ... 计算及格率、作业完成率
+    }
+    return Result.success(result);
+}
+```
+
+## 5.1.3 系统管理员模块
+
+### 1.管理员登录
+管理员拥有独立的登录入口。为了安全性，后端硬编码限制了管理员角色的权限检查。登录成功后，前端路由守卫会再次校验角色信息，防止非管理员用户通过直接输入 URL 的方式访问后台管理页面。
+
+#### 核心代码实现
+```typescript
+// AdminRouter.js (Vue Router) - 路由守卫
+router.beforeEach((to, from, next) => {
+  if (to.meta.requiresAdmin) {
+    const role = localStorage.getItem('role');
+    if (role !== 'ADMIN') {
+      next('/403'); // 权限不足
+      return;
+    }
+  }
+  next();
+});
+```
+
+### 2.用户管理
+管理员可以对平台上的所有用户进行管理。通过搜索功能定位到指定用户后，管理员可以查看其注册时间和登录日志。对于违规用户，管理员有权将其封禁，后端通过修改用户表的状态字段来实现这一功能。
+
+#### 核心代码实现
+```java
+// AdminController.java - 删除/封禁用户
+@PostMapping("/user/delete")
+public Result<String> deleteUser(@RequestBody Map<String, Long> params) {
+    Long userId = params.get("id");
+    if (userId == null) return Result.error(400, "ID不能为空");
+    
+    // 逻辑删除或物理删除
+    userService.removeById(userId);
+    return Result.success("删除成功");
+}
+```
+
+### 3.课程管理
+管理员负责监管平台上的课程内容。列表页展示了所有课程的简要信息，管理员支持预览课程详情。若发现违规内容，管理员可点击强制下架，后端会级联隐藏该课程及其相关的章节和资源。
+
+#### 核心代码实现
+```java
+// AdminController.java - 强制删除课程
+@PostMapping("/course/delete")
+public Result<String> deleteCourse(@RequestBody Map<String, Long> params) {
+    Long courseId = params.get("id");
+    // 级联删除逻辑已在 Service 层处理或其他表有关联
+    courseService.removeById(courseId);
+    return Result.success("该课程已强制下架");
+}
+```
+
+### 4.信息管理
+管理员在此模块维护系统配置和个人密码。定期的密码更换有助于系统安全。界面设计简洁，主要用于基础参数的设置。
+
+#### 核心代码实现
+```java
+// AuthController.java - 修改密码 (通用接口)
+// 管理员复用通用的修改密码接口，确保所有角色修改逻辑一致
+@PostMapping("/userInfo/password")
+public Result<String> changePassword(...) {
+    // 验证旧密码并更新
+    // ...
+}
+```
+
+### 5.设备管理
+这是配合 App 端设备限制的管理功能。管理员可以查看每个学生账号绑定的具体设备列表，包含设备 ID 和绑定时间。当学生因设备数达到 50 台上限无法登录时，管理员可在此手动删除旧的设备记录，后端对应删除 `devices` 表中的数据。
+
+#### 核心代码实现
+```java
+// AdminController.java - 解绑设备
+@PostMapping("/device/delete")
+public Result<String> deleteDevice(@RequestBody Map<String, Long> params) {
+    Long id = params.get("id");
+    // 解除设备绑定，允许学生在新设备登录
+    deviceService.removeById(id);
+    return Result.success("设备解绑成功");
+}
+```

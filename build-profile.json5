@@ -23,11 +23,11 @@
         "material": {
           "certpath": "/Users/zhouzhe/.ohos/config/default_interview-handbook-project_1abPuZUJy2vzPtrgD9Wpx32Ykgexwro6UH-s4fCN2Qw=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001BC32AC3B126304B8C3C579E9584A14FEEB01F5ECB9CEF524FF402F48B115832DECBD852C5503941",
+          "keyPassword": "0000001B45A77F16399A8E1D348E5C5A3D7F58F8354FF4509BCBBDBD9E5183A76819292F35EC643AE69633",
           "profile": "/Users/zhouzhe/.ohos/config/default_interview-handbook-project_1abPuZUJy2vzPtrgD9Wpx32Ykgexwro6UH-s4fCN2Qw=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "/Users/zhouzhe/.ohos/config/default_interview-handbook-project_1abPuZUJy2vzPtrgD9Wpx32Ykgexwro6UH-s4fCN2Qw=.p12",
-          "storePassword": "0000001B7CB2E88DBA354EA89721B8D2861E8A4856DFA90D1173C738B67BFDB5988E749583C8CE740DAA14"
+          "storePassword": "0000001B89287B502312BC893A22B8DBE5DD28BA212F29D4B521D4790990A4DDE070CF55C5E25D31D14439"
         }
       }
     ]

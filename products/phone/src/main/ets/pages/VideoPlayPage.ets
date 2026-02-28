@@ -1,5 +1,4 @@
 import { router, promptAction } from '@kit.ArkUI';
-import { webview } from '@kit.ArkWeb';
 import { NetworkConfig, logger } from '@itcast/basic';
 
 @Entry
@@ -8,19 +7,13 @@ struct VideoPlayPage {
   @State url: string = ''
   @State title: string = ''
   
-  // 使用 Web 组件控制器
-  controller: webview.WebviewController = new webview.WebviewController();
+  // 使用原生视频控制器
+  controller: VideoController = new VideoController()
 
   aboutToAppear() {
-    // 开启 Web 调试模式
-    webview.WebviewController.setWebDebuggingAccess(true);
-
     const params = router.getParams() as Record<string, string>
     logger.info('VideoPlayPage', `aboutToAppear, params: ${JSON.stringify(params)}`)
     if (params) {
-      // 禁用硬件加速，尝试解决 PIPELINE_ERROR_DECODE 问题
-      // 注意：HarmonyOS Web 组件目前没有直接的 disableHardwareAcceleration API
-      // 但我们可以尝试通过 URL 参数或者不一样的加载方式来规避
       this.resolveUrl(params.url);
       this.title = params.title
     }
@@ -85,29 +78,36 @@ struct VideoPlayPage {
       .zIndex(1)
 
       // 2. 视频播放区域
-      // 直接使用 Web 组件加载视频 URL，由内核处理播放逻辑
-      // 这种方式通常比注入 HTML 更稳定，且支持浏览器的原生视频播放器特性
-      Web({ src: this.url, controller: this.controller })
-        .width('100%')
-        .layoutWeight(1)
-        .backgroundColor(Color.Black)
-        .domStorageAccess(true)
-        .mediaPlayGestureAccess(true)
-        .onlineImageAccess(true)
-        .imageAccess(true)
-        .fileAccess(true)
-        .databaseAccess(true)
-        .javaScriptAccess(true)
-        .mixedMode(MixedMode.All)
-        .onPageBegin(() => {
-          logger.info('VideoPlayPage', 'Web loading started')
+      // 使用原生 Video 组件
+      if (this.url) {
+        Video({
+          src: this.url,
+          controller: this.controller
         })
-        .onPageEnd(() => {
-          logger.info('VideoPlayPage', 'Web loading finished')
-        })
-        .onErrorReceive((event) => {
-          logger.error('VideoPlayPage', `Web error: ${JSON.stringify(event)}`)
-        })
+          .width('100%')
+          .layoutWeight(1)
+          .autoPlay(true)
+          .controls(true) // 显示默认控制条
+          .objectFit(ImageFit.Contain)
+          .onStart(() => {
+            logger.info('VideoPlayPage', 'Video started')
+          })
+          .onError(() => {
+            logger.error('VideoPlayPage', 'Video play error')
+            promptAction.showToast({ message: '视频播放失败，请检查网络或格式' })
+          })
+      } else {
+         // Loading 状态
+         Column() {
+           LoadingProgress()
+             .width(50)
+             .height(50)
+             .color(Color.White)
+         }
+         .width('100%')
+         .layoutWeight(1)
+         .justifyContent(FlexAlign.Center)
+      }
     }
     .width('100%')
     .height('100%')
