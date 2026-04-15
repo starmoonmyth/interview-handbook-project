@@ -83,21 +83,23 @@ export class CourseModel {
   }
 
   /**
-   * 解析 URL，处理 localhost 和相对路径
+   * 解析 URL，处理 localhost、局域网 IP 和相对路径
    */
   private resolveUrl(url: string): string {
     if (!url) return ''
-    // 强制处理：即使是 http://localhost 也替换，或者相对路径，或者 127.0.0.1
-    if (!url.startsWith('http') || url.includes('localhost') || url.includes('127.0.0.1')) {
+    
+    // 匹配 localhost, 127.0.0.1, 以及所有常见的局域网 IP 段
+    const localIpRegex = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?\//
+
+    // 强制处理：如果是相对路径，或者是包含本机局域网 IP 的绝对路径
+    if (!url.startsWith('http') || localIpRegex.test(url)) {
       // 移除 BASE_URL 末尾的 'hm/'，获取服务器根地址 (e.g. http://192.168.31.214:8080/)
       const baseUrlRoot = NetworkConfig.BASE_URL.replace(/\/hm\/?$/, '/')
       
       let cleanPath = ''
-      // 匹配 http(s)://localhost(:port)/ 或 http(s)://127.0.0.1(:port)/
-      const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//
       
-      if (localhostRegex.test(url)) {
-         cleanPath = url.replace(localhostRegex, '')
+      if (localIpRegex.test(url)) {
+         cleanPath = url.replace(localIpRegex, '')
       } else {
          // 移除 url 开头的 '/' (如果有)
          cleanPath = url.startsWith('/') ? url.substring(1) : url

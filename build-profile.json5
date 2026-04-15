@@ -21,13 +21,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "/Users/zhouzhe/.ohos/config/default_interview-handbook-project_1abPuZUJy2vzPtrgD9Wpx32Ykgexwro6UH-s4fCN2Qw=.cer",
+          "certpath": "/Users/zhouzhe/.ohos/config/default_study_usw8fGGbxpnXK_AjUV9OJQ5mkBALJ2aolB--KRalKew=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B45A77F16399A8E1D348E5C5A3D7F58F8354FF4509BCBBDBD9E5183A76819292F35EC643AE69633",
-          "profile": "/Users/zhouzhe/.ohos/config/default_interview-handbook-project_1abPuZUJy2vzPtrgD9Wpx32Ykgexwro6UH-s4fCN2Qw=.p7b",
+          "keyPassword": "0000001B53DCEB695127504D5268A4B5B49DFD35CF4C059100B72B64CF39785D0CE7E46F0ECCC17624A6C5",
+          "profile": "/Users/zhouzhe/.ohos/config/default_study_usw8fGGbxpnXK_AjUV9OJQ5mkBALJ2aolB--KRalKew=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "/Users/zhouzhe/.ohos/config/default_interview-handbook-project_1abPuZUJy2vzPtrgD9Wpx32Ykgexwro6UH-s4fCN2Qw=.p12",
-          "storePassword": "0000001B89287B502312BC893A22B8DBE5DD28BA212F29D4B521D4790990A4DDE070CF55C5E25D31D14439"
+          "storeFile": "/Users/zhouzhe/.ohos/config/default_study_usw8fGGbxpnXK_AjUV9OJQ5mkBALJ2aolB--KRalKew=.p12",
+          "storePassword": "0000001BB8A08B1B5CB395E09232CAB080907B4FCE221A38FBB78D6367B32A9FC3B798976704861D070EEB"
         }
       }
     ]

@@ -28,5 +28,5 @@ export class NetworkConfig {
    *    - 确保手机/模拟器与电脑连接同一 WiFi
    *    - 确保电脑防火墙允许端口访问
    */
-  static readonly BASE_URL = 'http://192.168.31.214:8080/hm/'
+  static readonly BASE_URL = 'http://192.168.31.208:8080/hm/'
 }

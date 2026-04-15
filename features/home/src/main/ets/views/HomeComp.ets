@@ -32,7 +32,7 @@ export struct HomeComp {
 
   getCourseList() {
     CourseService.getCourseList().then(res => {
-      let courses = res.data || []
+      let courses = (res.data || []).map(item => new CourseModel(item as CourseData))
 
       // 推荐课程：参加人数最多的前4个
       this.recommendedList = [...courses]
